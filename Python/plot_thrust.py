@@ -1,4 +1,5 @@
 import serial
+import numpy as np
 from time import sleep, time
 from datetime import datetime
 from matplotlib import pyplot as plt
@@ -9,16 +10,21 @@ voltage = []
 current = []
 thrust = []
 pwm = []
+thrust_offset = 0
+
+current_scale = 0.06 * 22 * 5.0 / 1024  # INA139: Rin * Rout / 1K * Vcc / 2^10bit
+voltage_scale = 5.0 / 1024  # Vcc / 2^10bit
+thrust_scale = -1/422  # LSB/g, experimental, inverted because thrust is directed upwards
 
 fig, (ax_thrust, ax_current, ax_voltage) = plt.subplots(3, 1, sharex=True, figsize=(8, 6))
 
 graph_thrust = ax_thrust.plot([], thrust, 'b')[0]
 graph_current = ax_current.plot([], current, 'r')[0]
-graph_voltage = ax_voltage.plot([], voltage, 'y')[0]
+graph_voltage = ax_voltage.plot([], voltage, 'g')[0]
 
-ax_thrust.set_title('Thrust')
-ax_current.set_title('Current')
-ax_voltage.set_title('Voltage')
+ax_thrust.set_title('Thrust, g')
+ax_current.set_title('Current, A')
+ax_voltage.set_title('Voltage, V')
 
 ax_thrust.set_xlim(0, 200)
 ax_thrust.get_xaxis().set_ticks([])
@@ -38,9 +44,9 @@ with serial.Serial(serial_port, 115200, timeout=3) as ser:
             d = [int(a) for a in line.split()]
 
             pwm.append(d[0])
-            voltage.append(d[1])
-            current.append(d[2])
-            thrust.append(-d[3]) # invert value if load cell is upside-down
+            voltage.append(d[1] * voltage_scale)
+            current.append(d[2] * current_scale)
+            thrust.append(d[3] * thrust_scale)
 
             graph_thrust.set_ydata(thrust)
             graph_current.set_ydata(current)
